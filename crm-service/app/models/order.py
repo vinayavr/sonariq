@@ -1,4 +1,6 @@
-﻿import uuid
+﻿from __future__ import annotations
+
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -6,6 +8,10 @@ from typing import Any
 from sqlalchemy import DateTime, ForeignKey, Numeric, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.customer import Customer
 
 from app.db.base import Base
 
