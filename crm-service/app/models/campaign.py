@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, Text, func
@@ -9,6 +9,7 @@ from app.db.base import Base
 
 
 class Campaign(Base):
+    """Represents a marketer-created outreach initiative across supported communication channels."""
     __tablename__ = "campaigns"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -21,3 +22,4 @@ class Campaign(Base):
     # Campaign connects outbound communications with the orders later attributed to it.
     communications: Mapped[list["Communication"]] = relationship(back_populates="campaign", cascade="all, delete-orphan")
     attributed_orders: Mapped[list["AttributedOrder"]] = relationship(back_populates="campaign", cascade="all, delete-orphan")
+

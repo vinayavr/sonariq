@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey
@@ -9,6 +9,7 @@ from app.db.base import Base
 
 
 class AttributedOrder(Base):
+    """Represents a purchase attributed to a campaign communication and is used for ROI and conversion tracking."""
     __tablename__ = "attributed_orders"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -21,3 +22,4 @@ class AttributedOrder(Base):
     communication: Mapped["Communication"] = relationship(back_populates="attributed_orders")
     # A single attribution row points at the order credited to the campaign touch.
     order: Mapped["Order"] = relationship()
+

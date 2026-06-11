@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, String, func
@@ -9,6 +9,7 @@ from app.db.base import Base
 
 
 class Customer(Base):
+    """Represents a shopper that can be segmented, targeted, and engaged through campaigns."""
     __tablename__ = "customers"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -23,3 +24,4 @@ class Customer(Base):
     # Customer owns the lifecycle records used for segmentation and outreach history.
     orders: Mapped[list["Order"]] = relationship(back_populates="customer", cascade="all, delete-orphan")
     communications: Mapped[list["Communication"]] = relationship(back_populates="customer", cascade="all, delete-orphan")
+

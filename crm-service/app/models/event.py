@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import datetime
 from enum import StrEnum
 
@@ -19,6 +19,7 @@ class CommunicationEventType(StrEnum):
 
 
 class CommunicationEvent(Base):
+    """Represents lifecycle events generated after a communication is sent, such as delivered, opened, read, clicked, or failed."""
     __tablename__ = "communication_events"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -30,3 +31,4 @@ class CommunicationEvent(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     communication: Mapped["Communication"] = relationship(back_populates="events")
+
