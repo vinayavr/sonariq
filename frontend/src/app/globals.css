@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f7faf8;
+  color: #13211f;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 236, 0.7), rgba(247, 250, 248, 0) 260px),
+    #f7faf8;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.recharts-wrapper * {
+  outline: none;
+}
