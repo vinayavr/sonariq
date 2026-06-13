@@ -1,5 +1,7 @@
 ﻿from fastapi import FastAPI
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.analytics import router as analytics_router
 from app.api.attribution import router as attribution_router
 from app.api.campaigns import router as campaigns_router
@@ -8,6 +10,17 @@ from app.api.receipts import router as communications_router
 from app.api.segments import router as segments_router
 
 app = FastAPI(title="SonarIQ CRM")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(segments_router, prefix="/segments", tags=["segments"])
 app.include_router(campaigns_router, prefix="/campaigns", tags=["campaigns"])
