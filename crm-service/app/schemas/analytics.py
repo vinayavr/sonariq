@@ -20,6 +20,7 @@ class CampaignAnalyticsResponse(BaseModel):
     communications_sent: int
     delivered: int
     opened: int
+    read: int
     clicked: int
     failed: int
     attributed_orders: int

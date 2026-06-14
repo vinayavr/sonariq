@@ -17,6 +17,7 @@ from app.schemas.campaign import (
 from app.services.campaign_service import (
     create_campaign,
     get_campaign,
+    get_recent_campaigns,
     launch_campaign,
     preview_campaign,
     to_campaign_response,
@@ -39,6 +40,13 @@ def create_campaign_endpoint(
     db: Session = Depends(get_db),
 ) -> CampaignResponse:
     return create_campaign(db, request)
+
+
+@router.get("", response_model=list[CampaignResponse])
+def get_recent_campaigns_endpoint(
+    db: Session = Depends(get_db),
+) -> list[CampaignResponse]:
+    return get_recent_campaigns(db)
 
 
 @router.post("/preview", response_model=CampaignPreviewResponse)

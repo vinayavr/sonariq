@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { FormField, inputClass, textareaClass } from "@/components/FormField";
 import { PageHeader } from "@/components/PageHeader";
+import { upsertStoredCampaign } from "@/lib/campaignStore";
 import { createCampaign, launchCampaign, previewCampaign } from "@/services/campaigns";
 import type {
   CampaignLaunchResponse,
@@ -36,6 +37,12 @@ export default function CampaignsPage() {
       const response = await createCampaign(campaign);
       setCreated(response);
       setCampaignId(response.id);
+      upsertStoredCampaign({
+        id: response.id,
+        name: response.name,
+        status: "created",
+        updatedAt: new Date().toISOString(),
+      });
       setStatus("Campaign created.");
     } catch (err) {
       setStatus((err as Error).message);
@@ -50,12 +57,18 @@ export default function CampaignsPage() {
 
     setStatus("Previewing campaign...");
     try {
-      setPreview(
-        await previewCampaign({
-          campaign_id: campaignId,
-          segment_filters: toSegmentRequest(segment),
-        }),
-      );
+      const response = await previewCampaign({
+        campaign_id: campaignId,
+        segment_filters: toSegmentRequest(segment),
+      });
+      setPreview(response);
+      upsertStoredCampaign({
+        id: campaignId,
+        name: response.campaign_name,
+        audience: response.audience_count,
+        status: "previewed",
+        updatedAt: new Date().toISOString(),
+      });
       setStatus("Campaign preview ready.");
     } catch (err) {
       setStatus((err as Error).message);
@@ -70,11 +83,17 @@ export default function CampaignsPage() {
 
     setStatus("Launching campaign...");
     try {
-      setLaunch(
-        await launchCampaign(campaignId, {
-          segment_filters: toSegmentRequest(segment),
-        }),
-      );
+      const response = await launchCampaign(campaignId, {
+        segment_filters: toSegmentRequest(segment),
+      });
+      setLaunch(response);
+      upsertStoredCampaign({
+        id: campaignId,
+        name: created?.name ?? preview?.campaign_name ?? "Campaign",
+        audience: preview?.audience_count,
+        status: "launched",
+        updatedAt: new Date().toISOString(),
+      });
       setStatus("Campaign launched.");
     } catch (err) {
       setStatus((err as Error).message);
@@ -202,22 +221,96 @@ export default function CampaignsPage() {
       </div>
 
       <section className="mt-6 grid gap-4 md:grid-cols-3">
-        <ResultBlock title="Created Campaign" data={created} />
-        <ResultBlock title="Preview Result" data={preview} />
-        <ResultBlock title="Launch Result" data={launch} />
+        <ResultBlock
+          title="Created Campaign"
+          stats={
+            created
+              ? [
+                  ["Campaign Name", created.name],
+                  ["Campaign ID", created.id],
+                  ["Channel", created.channel],
+                  ["Goal", created.goal],
+                ]
+              : []
+          }
+        />
+        <ResultBlock
+          title="Preview Result"
+          stats={
+            preview
+              ? [
+                  ["Audience Count", preview.audience_count.toLocaleString("en-IN")],
+                  ["Estimated Messages", preview.estimated_messages.toLocaleString("en-IN")],
+                ]
+              : []
+          }
+        />
+        <ResultBlock
+          title="Launch Result"
+          stats={
+            launch
+              ? [
+                  ["Campaign ID", launch.campaign_id],
+                  [
+                    "Communications Created",
+                    launch.communications_created.toLocaleString("en-IN"),
+                  ],
+                ]
+              : []
+          }
+        />
       </section>
+      <DeveloperLogs
+        responses={{
+          created_campaign: created,
+          preview_result: preview,
+          launch_result: launch,
+        }}
+      />
     </>
   );
 }
 
-function ResultBlock({ title, data }: { title: string; data: unknown }) {
+function ResultBlock({
+  title,
+  stats,
+}: {
+  title: string;
+  stats: [string, string][];
+}) {
   return (
     <div className="rounded border border-ink/10 bg-white p-4 shadow-soft">
       <p className="text-sm font-semibold text-ink">{title}</p>
-      <pre className="mt-3 max-h-56 overflow-auto rounded bg-cloud p-3 text-xs text-ink/70">
-        {data ? JSON.stringify(data, null, 2) : "No result yet"}
-      </pre>
+      {stats.length ? (
+        <div className="mt-3 grid gap-2">
+          {stats.map(([label, value]) => (
+            <div key={label} className="rounded bg-cloud p-2">
+              <p className="text-xs font-medium text-ink/50">{label}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-ink">{value}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 rounded bg-cloud p-3 text-sm text-ink/55">No result yet</p>
+      )}
     </div>
+  );
+}
+
+function DeveloperLogs({
+  responses,
+}: {
+  responses: Record<string, unknown>;
+}) {
+  const hasResponses = Object.values(responses).some(Boolean);
+
+  return (
+    <details className="mt-4 rounded border border-ink/10 bg-white p-3 text-xs text-ink shadow-soft">
+      <summary className="cursor-pointer font-semibold text-ink/65">Developer Logs</summary>
+      <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-white/80 p-3">
+        {hasResponses ? JSON.stringify(responses, null, 2) : "No API responses yet."}
+      </pre>
+    </details>
   );
 }
 

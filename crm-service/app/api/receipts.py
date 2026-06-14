@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.schemas.communication import (
     CommunicationEventResponse,
+    LatestCommunicationEventResponse,
     ProcessCommunicationsResponse,
 )
 from app.services.communication_service import (
     get_communication_events,
+    get_latest_communication_events,
     process_pending_communications,
 )
 
@@ -31,6 +33,13 @@ def process_communications_endpoint(
     db: Session = Depends(get_db),
 ) -> ProcessCommunicationsResponse:
     return process_pending_communications(db)
+
+
+@router.get("/events/latest", response_model=list[LatestCommunicationEventResponse])
+def get_latest_communication_events_endpoint(
+    db: Session = Depends(get_db),
+) -> list[LatestCommunicationEventResponse]:
+    return get_latest_communication_events(db)
 
 
 @router.get("/{communication_id}/events", response_model=list[CommunicationEventResponse])

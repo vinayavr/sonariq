@@ -5,6 +5,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { sendChatMessage } from "@/services/chat";
 import type { ChatResponse } from "@/types/api";
 
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
 type Message = {
   role: "user" | "assistant";
   content: string;
@@ -72,11 +78,13 @@ export default function ChatPage() {
                       : "mr-auto bg-cloud text-ink"
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
                   {message.response ? (
-                    <pre className="mt-3 max-h-72 overflow-auto rounded bg-white/80 p-3 text-xs text-ink">
-                      {JSON.stringify(message.response, null, 2)}
-                    </pre>
+                    <AssistantResponse response={message.response} />
+                  ) : (
+                    <p className="text-sm">{message.content}</p>
+                  )}
+                  {message.response ? (
+                    <DeveloperLogs response={message.response} />
                   ) : null}
                 </div>
               ))}
@@ -101,4 +109,175 @@ export default function ChatPage() {
       </section>
     </>
   );
+}
+
+function AssistantResponse({ response }: { response: ChatResponse }) {
+  if (response.result.error) {
+    return <p className="text-sm text-coral">{String(response.result.error)}</p>;
+  }
+
+  if (response.intent === "best_campaign") {
+    return (
+      <InsightCard
+        title="Best Campaign"
+        stats={[
+          ["Campaign Name", textValue(response.result.campaign_name)],
+          ["Attributed Revenue", moneyValue(response.result.attributed_revenue)],
+          ["Conversion Rate", percentValue(response.result.conversion_rate)],
+          ["Communications Sent", numberValue(response.result.communications_sent)],
+        ]}
+      />
+    );
+  }
+
+  if (response.intent === "campaign_insight" || response.intent === "campaign_analytics") {
+    const stats: [string, string][] = [
+      ["Delivered", numberValue(response.result.delivered)],
+      ["Opened", numberValue(response.result.opened)],
+      ["Read", numberValue(response.result.read)],
+      ["Clicked", numberValue(response.result.clicked)],
+      ["Attributed Revenue", moneyValue(response.result.attributed_revenue)],
+      ["Attributed Orders", numberValue(response.result.attributed_orders)],
+      ["Conversion Rate", percentValue(response.result.conversion_rate)],
+    ];
+
+    if (response.result.campaign_name) {
+      stats.unshift(["Campaign Name", textValue(response.result.campaign_name)]);
+    }
+
+    return (
+      <InsightCard
+        title="Campaign Insights"
+        stats={stats}
+      />
+    );
+  }
+
+  if (response.intent === "segment_preview" || response.intent === "campaign_preview") {
+    const filters = Object.entries(response.parameters).filter(([, value]) => value !== undefined);
+
+    return (
+      <div className="grid gap-3">
+        <InsightCard
+          title="Segment Preview"
+          stats={[["Audience Count", numberValue(response.result.audience_count)]]}
+        />
+        <div className="rounded bg-white/80 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">
+            Filters Applied
+          </p>
+          {filters.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {filters.map(([key, value]) => (
+                <span
+                  key={key}
+                  className="rounded bg-mint px-2 py-1 text-xs font-medium text-leaf"
+                >
+                  {formatLabel(key)}: {String(value)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-ink/55">No filters applied.</p>
+          )}
+        </div>
+        <div className="rounded bg-white/80 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">
+            Business Interpretation
+          </p>
+          <p className="mt-2 text-sm text-ink/70">
+            {segmentSummary(response.result.audience_count, filters.length)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <InsightCard
+      title="Overview"
+      stats={Object.entries(response.result).map(([key, value]) => [
+        formatLabel(key),
+        formatUnknownValue(value),
+      ])}
+    />
+  );
+}
+
+function InsightCard({
+  title,
+  stats,
+}: {
+  title: string;
+  stats: [string, string][];
+}) {
+  return (
+    <div className="rounded bg-white/80 p-3">
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map(([label, value]) => (
+          <div key={label} className="rounded bg-cloud p-2">
+            <p className="text-xs font-medium text-ink/50">{label}</p>
+            <p className="mt-1 truncate text-sm font-semibold text-ink">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeveloperLogs({ response }: { response: ChatResponse }) {
+  return (
+    <details className="mt-3 rounded bg-white/70 p-3 text-xs text-ink">
+      <summary className="cursor-pointer font-semibold text-ink/65">Developer Logs</summary>
+      <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded bg-white/80 p-3">
+        {JSON.stringify(response, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
+function segmentSummary(audienceCount: unknown, filterCount: number) {
+  const count = typeof audienceCount === "number" ? audienceCount : Number(audienceCount ?? 0);
+  if (count <= 0) {
+    return "No matching audience was found for this request yet.";
+  }
+
+  const filterText = filterCount === 0 ? "broad audience" : "filtered audience";
+  return `This ${filterText} includes ${numberValue(count)} customers who can be used for campaign planning.`;
+}
+
+function formatLabel(key: string) {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function textValue(value: unknown) {
+  return value === undefined || value === null || value === "" ? "-" : String(value);
+}
+
+function numberValue(value: unknown) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numericValue) ? numericValue.toLocaleString("en-IN") : "-";
+}
+
+function moneyValue(value: unknown) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numericValue) ? currency.format(numericValue) : "-";
+}
+
+function percentValue(value: unknown) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numericValue) ? `${numericValue.toFixed(1)}%` : "-";
+}
+
+function formatUnknownValue(value: unknown) {
+  if (typeof value === "number") {
+    return numberValue(value);
+  }
+  if (typeof value === "string" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }

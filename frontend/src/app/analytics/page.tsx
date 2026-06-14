@@ -5,9 +5,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -47,8 +44,31 @@ export default function AnalyticsPage() {
         ? [
             { name: "Delivered", value: analytics.delivered },
             { name: "Opened", value: analytics.opened },
+            { name: "Read", value: analytics.read },
             { name: "Clicked", value: analytics.clicked },
             { name: "Failed", value: analytics.failed },
+          ]
+        : [],
+    [analytics],
+  );
+
+  const performanceMetrics = useMemo(
+    () =>
+      analytics
+        ? [
+            [
+              "Delivery Rate",
+              percentFrom(analytics.delivered, analytics.communications_sent),
+            ],
+            ["Open Rate", percentFrom(analytics.opened, analytics.delivered)],
+            ["Read Rate", percentFrom(analytics.read, analytics.opened)],
+            ["Click-Through Rate", percentFrom(analytics.clicked, analytics.delivered)],
+            ["Click-to-Read Rate", percentFrom(analytics.clicked, analytics.read || analytics.opened)],
+            [
+              "Revenue per Attributed Order",
+              moneyFrom(analytics.attributed_revenue, analytics.attributed_orders),
+            ],
+            ["Failure Rate", percentFrom(analytics.failed, analytics.communications_sent)],
           ]
         : [],
     [analytics],
@@ -96,10 +116,10 @@ export default function AnalyticsPage() {
             <MetricCard label="Communications Sent" value={analytics.communications_sent} />
           </section>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-2">
-            <div className="rounded border border-ink/10 bg-white p-5 shadow-soft">
-              <p className="mb-4 text-sm font-semibold text-ink">Engagement Funnel</p>
-              <div className="h-72">
+          <section className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded border border-ink/10 bg-white p-4 shadow-soft">
+              <p className="mb-3 text-sm font-semibold text-ink">Engagement Funnel</p>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={funnelData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#dbe7e1" />
@@ -111,19 +131,15 @@ export default function AnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="rounded border border-ink/10 bg-white p-5 shadow-soft">
-              <p className="mb-4 text-sm font-semibold text-ink">Outcome Mix</p>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={funnelData} dataKey="value" nameKey="name" outerRadius={95} label>
-                      {["#2f7d63", "#f4a261", "#e76f51", "#13211f"].map((color) => (
-                        <Cell key={color} fill={color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+            <div className="rounded border border-ink/10 bg-white p-4 shadow-soft">
+              <p className="mb-3 text-sm font-semibold text-ink">Performance Metrics</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {performanceMetrics.map(([label, value]) => (
+                  <div key={label} className="rounded bg-cloud p-3">
+                    <p className="text-xs font-medium text-ink/50">{label}</p>
+                    <p className="mt-1 truncate text-lg font-semibold text-ink">{value}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
@@ -131,4 +147,12 @@ export default function AnalyticsPage() {
       ) : null}
     </>
   );
+}
+
+function percentFrom(numerator: number, denominator: number) {
+  return denominator > 0 ? `${((numerator / denominator) * 100).toFixed(1)}%` : "0.0%";
+}
+
+function moneyFrom(numerator: number, denominator: number) {
+  return denominator > 0 ? currency.format(numerator / denominator) : currency.format(0);
 }

@@ -7,10 +7,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.campaign import Campaign
 from app.models.communication import Communication
 from app.models.event import CommunicationEvent, CommunicationEventType
 from app.schemas.communication import (
     CommunicationEventResponse,
+    LatestCommunicationEventResponse,
     ProcessCommunicationsResponse,
 )
 
@@ -18,10 +20,12 @@ SENT_STATUS = "SENT"
 DELIVERED_STATUS = "DELIVERED"
 FAILED_STATUS = "FAILED"
 OPENED_STATUS = "OPENED"
+READ_STATUS = "READ"
 CLICKED_STATUS = "CLICKED"
 
 DELIVERY_PROBABILITY = 0.90
 OPEN_PROBABILITY = 0.70
+READ_PROBABILITY = 0.80
 CLICK_PROBABILITY = 0.30
 
 
@@ -32,6 +36,7 @@ def process_pending_communications(db: Session) -> ProcessCommunicationsResponse
 
     delivered = 0
     opened = 0
+    read = 0
     clicked = 0
     failed = 0
 
@@ -61,6 +66,18 @@ def process_pending_communications(db: Session) -> ProcessCommunicationsResponse
                         timestamp=event_time,
                     )
                 )
+
+                if random.random() <= READ_PROBABILITY:
+                    read += 1
+                    latest_status = READ_STATUS
+                    event_time = event_time + timedelta(seconds=1)
+                    events.append(
+                        CommunicationEvent(
+                            communication_id=communication.id,
+                            event_type=CommunicationEventType.READ,
+                            timestamp=event_time,
+                        )
+                    )
 
                 if random.random() <= CLICK_PROBABILITY:
                     clicked += 1
@@ -94,6 +111,7 @@ def process_pending_communications(db: Session) -> ProcessCommunicationsResponse
         processed=len(communications),
         delivered=delivered,
         opened=opened,
+        read=read,
         clicked=clicked,
         failed=failed,
     )
@@ -115,6 +133,40 @@ def get_communication_events(
             timestamp=event.timestamp,
         )
         for event in events
+    ]
+
+
+def get_latest_communication_events(
+    db: Session,
+    limit: int = 10,
+) -> list[LatestCommunicationEventResponse]:
+    recent_campaign_ids = (
+        select(Campaign.id)
+        .order_by(Campaign.created_at.desc())
+        .limit(3)
+        .subquery()
+    )
+    rows = db.execute(
+        select(
+            CommunicationEvent.event_type,
+            CommunicationEvent.communication_id,
+            Communication.campaign_id,
+            CommunicationEvent.timestamp,
+        )
+        .join(Communication, Communication.id == CommunicationEvent.communication_id)
+        .where(Communication.campaign_id.in_(select(recent_campaign_ids.c.id)))
+        .order_by(CommunicationEvent.timestamp.desc())
+        .limit(limit)
+    ).all()
+
+    return [
+        LatestCommunicationEventResponse(
+            event_type=event_type_label(row.event_type),
+            communication_id=row.communication_id,
+            campaign_id=row.campaign_id,
+            timestamp=row.timestamp,
+        )
+        for row in rows
     ]
 
 

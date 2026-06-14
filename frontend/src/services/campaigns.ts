@@ -15,6 +15,10 @@ export function createCampaign(payload: CampaignCreateRequest) {
   });
 }
 
+export function getRecentCampaigns() {
+  return apiRequest<CampaignResponse[]>("/campaigns");
+}
+
 export function previewCampaign(payload: CampaignPreviewRequest) {
   return apiRequest<CampaignPreviewResponse>("/campaigns/preview", {
     method: "POST",

@@ -60,11 +60,19 @@ export type CampaignAnalytics = {
   communications_sent: number;
   delivered: number;
   opened: number;
+  read: number;
   clicked: number;
   failed: number;
   attributed_orders: number;
   attributed_revenue: number;
   conversion_rate: number;
+};
+
+export type CommunicationEvent = {
+  event_type: string;
+  communication_id: string;
+  campaign_id: string;
+  timestamp: string;
 };
 
 export type ChatRequest = {

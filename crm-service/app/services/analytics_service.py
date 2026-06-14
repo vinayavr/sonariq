@@ -62,6 +62,7 @@ def get_campaign_analytics(
         communications_sent=communications_sent,
         delivered=event_counts[CommunicationEventType.DELIVERED],
         opened=event_counts[CommunicationEventType.OPENED],
+        read=event_counts[CommunicationEventType.READ],
         clicked=event_counts[CommunicationEventType.CLICKED],
         failed=event_counts[CommunicationEventType.FAILED],
         attributed_orders=attributed_orders,
@@ -83,6 +84,7 @@ def campaign_event_counts(
                 [
                     CommunicationEventType.DELIVERED,
                     CommunicationEventType.OPENED,
+                    CommunicationEventType.READ,
                     CommunicationEventType.CLICKED,
                     CommunicationEventType.FAILED,
                 ]
@@ -94,6 +96,7 @@ def campaign_event_counts(
     counts = {
         CommunicationEventType.DELIVERED: 0,
         CommunicationEventType.OPENED: 0,
+        CommunicationEventType.READ: 0,
         CommunicationEventType.CLICKED: 0,
         CommunicationEventType.FAILED: 0,
     }

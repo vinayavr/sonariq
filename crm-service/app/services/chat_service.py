@@ -4,8 +4,10 @@ import re
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.campaign import Campaign
 from app.schemas.campaign import CampaignPreviewRequest
 from app.schemas.chat import ChatResponse
 from app.schemas.segment import SegmentPreviewRequest
@@ -28,6 +30,10 @@ def handle_chat_message(message: str, db: Session) -> ChatResponse:
 
     if intent == "analytics_overview":
         result = to_dict(get_analytics_overview(db))
+    elif intent == "best_campaign":
+        result = get_best_campaign(message, db)
+    elif intent == "campaign_insight":
+        result = get_campaign_insight(parameters, db)
     elif intent == "campaign_analytics":
         result = run_campaign_analytics(parameters, db)
     elif intent == "campaign_preview":
@@ -48,6 +54,15 @@ def handle_chat_message(message: str, db: Session) -> ChatResponse:
 def detect_intent(message: str) -> str:
     normalized = message.lower()
 
+    if "campaign" in normalized and any(
+        keyword in normalized
+        for keyword in ["best", "highest", "performed best", "top"]
+    ):
+        return "best_campaign"
+    if "campaign" in normalized and extract_uuid(message) is not None and any(
+        keyword in normalized for keyword in ["analytics", "about", "insight", "show", "tell"]
+    ):
+        return "campaign_insight"
     if "campaign" in normalized and any(
         keyword in normalized for keyword in ["analytics", "performance", "stats"]
     ):
@@ -151,6 +166,61 @@ def run_campaign_analytics(parameters: dict[str, Any], db: Session) -> dict[str,
     if campaign_id is None:
         return {"error": "campaign_id is required for campaign_analytics"}
     return to_dict(get_campaign_analytics(campaign_id, db))
+
+
+def get_best_campaign(message: str, db: Session) -> dict[str, Any]:
+    campaigns = db.execute(select(Campaign)).scalars().all()
+    if not campaigns:
+        return {"error": "No campaigns found"}
+
+    analytics = [
+        (campaign, get_campaign_analytics(campaign.id, db))
+        for campaign in campaigns
+    ]
+    normalized = message.lower()
+    best_campaign, best_analytics = max(
+        analytics,
+        key=lambda item: (
+            item[1].conversion_rate
+            if "conversion" in normalized
+            else item[1].attributed_revenue
+        ),
+    )
+
+    return {
+        "intent": "best_campaign",
+        "campaign_id": str(best_campaign.id),
+        "campaign_name": best_campaign.name,
+        "attributed_revenue": best_analytics.attributed_revenue,
+        "conversion_rate": best_analytics.conversion_rate,
+        "communications_sent": best_analytics.communications_sent,
+    }
+
+
+def get_campaign_insight(parameters: dict[str, Any], db: Session) -> dict[str, Any]:
+    campaign_id = parse_campaign_id(parameters)
+    if campaign_id is None:
+        return {"error": "campaign_id is required for campaign_insight"}
+
+    campaign = get_campaign(db, campaign_id)
+    if campaign is None:
+        return {"error": "Campaign not found"}
+
+    analytics = get_campaign_analytics(campaign_id, db)
+    return {
+        "intent": "campaign_insight",
+        "campaign_id": str(campaign.id),
+        "campaign_name": campaign.name,
+        "communications_sent": analytics.communications_sent,
+        "delivered": analytics.delivered,
+        "opened": analytics.opened,
+        "read": analytics.read,
+        "clicked": analytics.clicked,
+        "failed": analytics.failed,
+        "attributed_orders": analytics.attributed_orders,
+        "attributed_revenue": analytics.attributed_revenue,
+        "conversion_rate": analytics.conversion_rate,
+    }
 
 
 def extract_uuid(message: str) -> UUID | None:
