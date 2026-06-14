@@ -260,6 +260,7 @@ export default function CampaignsPage() {
           }
         />
       </section>
+      <CampaignLifecycleTimeline created={created} preview={preview} launch={launch} />
       <DeveloperLogs
         responses={{
           created_campaign: created,
@@ -268,6 +269,78 @@ export default function CampaignsPage() {
         }}
       />
     </>
+  );
+}
+
+function CampaignLifecycleTimeline({
+  created,
+  preview,
+  launch,
+}: {
+  created: CampaignResponse | null;
+  preview: CampaignPreviewResponse | null;
+  launch: CampaignLaunchResponse | null;
+}) {
+  const steps = [
+    {
+      label: "Created",
+      complete: Boolean(created),
+      detail: created
+        ? `${created.name} created ${formatRelativeTimestamp(created.created_at)}.`
+        : "Create a campaign to start the timeline.",
+    },
+    {
+      label: "Launched",
+      complete: Boolean(launch),
+      detail: launch
+        ? `Campaign ${shortenId(launch.campaign_id)} launched.`
+        : "Launch the campaign after previewing your audience.",
+    },
+    {
+      label: "Communications Sent",
+      complete: Boolean(launch?.communications_created),
+      detail: launch
+        ? `${launch.communications_created.toLocaleString("en-IN")} communications created.`
+        : "Communications will appear after launch.",
+    },
+    {
+      label: "Engagement Recorded",
+      complete: Boolean(launch?.communications_created),
+      detail: launch
+        ? "Delivery and engagement events are available in analytics and the activity feed."
+        : "Engagement appears when campaign events are recorded.",
+    },
+    {
+      label: "Revenue Attributed",
+      complete: false,
+      detail: preview
+        ? "Open Analytics after launch to inspect attributed orders and revenue."
+        : "Preview and launch a campaign before reviewing revenue attribution.",
+    },
+  ];
+
+  return (
+    <section className="mt-6 rounded border border-ink/10 bg-white p-4 shadow-soft">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">Campaign Lifecycle Timeline</p>
+        <span className="text-xs text-ink/50">Created - Launched - Revenue Attributed</span>
+      </div>
+      <ol className="grid gap-3 md:grid-cols-5">
+        {steps.map((step) => (
+          <li key={step.label} className="rounded bg-cloud p-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  step.complete ? "bg-leaf" : "bg-ink/20"
+                }`}
+              />
+              <p className="text-sm font-semibold text-ink">{step.label}</p>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-ink/60">{step.detail}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -312,6 +385,34 @@ function DeveloperLogs({
       </pre>
     </details>
   );
+}
+
+function shortenId(id: string) {
+  return id.length > 12 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id;
+}
+
+function formatRelativeTimestamp(timestamp: string) {
+  const eventTime = new Date(timestamp).getTime();
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - eventTime) / 1000));
+
+  if (diffSeconds < 60) {
+    return "just now";
+  }
+  if (diffSeconds < 3600) {
+    const minutes = Math.floor(diffSeconds / 60);
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+  if (diffSeconds < 86400) {
+    const hours = Math.floor(diffSeconds / 3600);
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+  if (diffSeconds < 172800) {
+    return "yesterday";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+  }).format(eventTime);
 }
 
 function toSegmentRequest(segment: {

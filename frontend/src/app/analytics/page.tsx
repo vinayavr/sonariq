@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -14,7 +14,8 @@ import { FormField, inputClass } from "@/components/FormField";
 import { MetricCard } from "@/components/MetricCard";
 import { PageHeader } from "@/components/PageHeader";
 import { getCampaignAnalytics } from "@/services/analytics";
-import type { CampaignAnalytics } from "@/types/api";
+import { getRecentCampaigns } from "@/services/campaigns";
+import type { CampaignAnalytics, CampaignResponse } from "@/types/api";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -24,8 +25,16 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export default function AnalyticsPage() {
   const [campaignId, setCampaignId] = useState("");
+  const [campaignNameQuery, setCampaignNameQuery] = useState("");
+  const [campaigns, setCampaigns] = useState<CampaignResponse[]>([]);
   const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    getRecentCampaigns()
+      .then(setCampaigns)
+      .catch(() => setCampaigns([]));
+  }, []);
 
   async function loadAnalytics(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +83,11 @@ export default function AnalyticsPage() {
     [analytics],
   );
 
+  const insightSummaries = useMemo(
+    () => (analytics ? buildInsightSummaries(analytics) : []),
+    [analytics],
+  );
+
   return (
     <>
       <PageHeader
@@ -88,9 +102,43 @@ export default function AnalyticsPage() {
             <input
               className={inputClass}
               value={campaignId}
-              onChange={(event) => setCampaignId(event.target.value)}
+              onChange={(event) => {
+                const nextCampaignId = event.target.value;
+                setCampaignId(nextCampaignId);
+                const matchingCampaign = campaigns.find(
+                  (campaign) => campaign.id === nextCampaignId,
+                );
+                if (matchingCampaign) {
+                  setCampaignNameQuery(matchingCampaign.name);
+                }
+              }}
               required
             />
+          </FormField>
+        </div>
+        <div className="md:min-w-[320px]">
+          <FormField label="Campaign Name Search">
+            <input
+              className={inputClass}
+              list="campaign-name-options"
+              value={campaignNameQuery}
+              onChange={(event) => {
+                const nextName = event.target.value;
+                setCampaignNameQuery(nextName);
+                const matchingCampaign = campaigns.find(
+                  (campaign) => campaign.name.toLowerCase() === nextName.toLowerCase(),
+                );
+                if (matchingCampaign) {
+                  setCampaignId(matchingCampaign.id);
+                }
+              }}
+              placeholder="Search recent campaign"
+            />
+            <datalist id="campaign-name-options">
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.name} />
+              ))}
+            </datalist>
           </FormField>
         </div>
         <button className="h-11 rounded bg-leaf px-5 text-sm font-semibold text-white">
@@ -98,6 +146,11 @@ export default function AnalyticsPage() {
         </button>
       </form>
       {status ? <p className="mb-5 text-sm text-ink/65">{status}</p> : null}
+      {!analytics && !status ? (
+        <p className="mb-5 rounded border border-dashed border-ink/15 bg-white p-4 text-sm text-ink/60">
+          Select a campaign to inspect engagement performance.
+        </p>
+      ) : null}
 
       {analytics ? (
         <>
@@ -143,6 +196,16 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </section>
+          <section className="mt-5 rounded border border-ink/10 bg-white p-4 shadow-soft">
+            <p className="text-sm font-semibold text-ink">Marketer Insights</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {insightSummaries.map((summary) => (
+                <p key={summary} className="rounded bg-cloud p-3 text-sm text-ink/70">
+                  {summary}
+                </p>
+              ))}
+            </div>
+          </section>
         </>
       ) : null}
     </>
@@ -155,4 +218,13 @@ function percentFrom(numerator: number, denominator: number) {
 
 function moneyFrom(numerator: number, denominator: number) {
   return denominator > 0 ? currency.format(numerator / denominator) : currency.format(0);
+}
+
+function buildInsightSummaries(analytics: CampaignAnalytics) {
+  return [
+    `${percentFrom(analytics.opened, analytics.delivered)} opened the communication.`,
+    `${percentFrom(analytics.read, analytics.opened)} read the message.`,
+    `${percentFrom(analytics.clicked, analytics.delivered)} clicked through.`,
+    `${percentFrom(analytics.attributed_orders, analytics.communications_sent)} converted into purchases.`,
+  ];
 }

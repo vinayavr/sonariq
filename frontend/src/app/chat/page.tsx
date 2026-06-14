@@ -11,6 +11,14 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+const promptSuggestions = [
+  "Which campaign generated the highest revenue?",
+  "Show top-performing campaigns.",
+  "Find dormant customers.",
+  "Summarize Monsoon Rewards.",
+  "Who should I target next?",
+];
+
 type Message = {
   role: "user" | "assistant";
   content: string;
@@ -65,7 +73,7 @@ export default function ChatPage() {
         <div className="h-[520px] overflow-y-auto p-5">
           {messages.length === 0 ? (
             <div className="grid h-full place-items-center text-center text-sm text-ink/55">
-              <p>Try: Show me customers from Chennai who spent more than 5000</p>
+              <p>Ask SonarIQ a question to receive marketing insights.</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -92,20 +100,34 @@ export default function ChatPage() {
           )}
         </div>
 
-        <form onSubmit={submit} className="flex gap-3 border-t border-ink/10 p-4">
-          <input
-            className="h-12 flex-1 rounded border border-ink/15 px-4 text-sm outline-none focus:border-leaf focus:ring-2 focus:ring-leaf/20"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about segments, campaign analytics, or overview"
-          />
-          <button
-            className="h-12 rounded bg-leaf px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? "Sending..." : "Send"}
-          </button>
-        </form>
+        <div className="border-t border-ink/10 p-4">
+          <form onSubmit={submit} className="flex gap-3">
+            <input
+              className="h-12 flex-1 rounded border border-ink/15 px-4 text-sm outline-none focus:border-leaf focus:ring-2 focus:ring-leaf/20"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about segments, campaign analytics, or overview"
+            />
+            <button
+              className="h-12 rounded bg-leaf px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? "Sending..." : "Send"}
+            </button>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {promptSuggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setInput(suggestion)}
+                className="rounded border border-ink/10 bg-cloud px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-leaf/30 hover:text-leaf"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
     </>
   );

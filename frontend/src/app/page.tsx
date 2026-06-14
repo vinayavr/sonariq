@@ -49,6 +49,7 @@ export default function DashboardPage() {
     () => campaigns[0],
     [campaigns],
   );
+  const aiInsights = useMemo(() => buildAiInsights(campaigns), [campaigns]);
 
   return (
     <>
@@ -79,6 +80,8 @@ export default function DashboardPage() {
             <TopCampaignCard campaign={topCampaign} />
             <PerformanceSnapshot campaign={topCampaign} />
           </section>
+
+          <AIInsightCard insights={aiInsights} />
 
           <section className="mt-3 grid items-start gap-3 xl:grid-cols-[1.25fr_0.75fr]">
             <RecentCampaignsTable campaigns={campaigns} />
@@ -124,7 +127,7 @@ function TopCampaignCard({ campaign }: { campaign?: DashboardCampaign }) {
           </div>
         </>
       ) : (
-        <EmptyState message="No campaign analytics available yet." />
+        <EmptyState message="Create and launch a campaign to view results here." />
       )}
     </section>
   );
@@ -166,7 +169,31 @@ function PerformanceSnapshot({
           </div>
         </>
       ) : (
-        <EmptyState message="No campaign analytics available yet." />
+        <EmptyState message="Create and launch a campaign to view results here." />
+      )}
+    </section>
+  );
+}
+
+function AIInsightCard({ insights }: { insights: string[] }) {
+  return (
+    <section className="mt-3 rounded border border-ink/10 bg-white p-3 shadow-soft">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-ink">AI Insight</p>
+        <span className="rounded bg-mint px-2 py-1 text-xs font-medium text-leaf">
+          Existing analytics only
+        </span>
+      </div>
+      {insights.length ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {insights.map((insight) => (
+            <p key={insight} className="rounded bg-cloud p-3 text-sm text-ink/70">
+              {insight}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <EmptyState message="Create and launch a campaign to view results here." />
       )}
     </section>
   );
@@ -215,7 +242,7 @@ function RecentCampaignsTable({ campaigns }: { campaigns: DashboardCampaign[] })
           </table>
         </div>
       ) : (
-        <EmptyState message="Campaigns created from the Campaigns page will appear here." />
+        <EmptyState message="Create and launch a campaign to view results here." />
       )}
     </section>
   );
@@ -258,6 +285,89 @@ function badgeTone(tone: "leaf" | "coral" | "gold" | "ink") {
   };
 
   return tones[tone];
+}
+
+function buildAiInsights(campaigns: DashboardCampaign[]) {
+  const campaignsWithAnalytics = campaigns.filter((campaign) => campaign.analytics);
+  if (!campaignsWithAnalytics.length) {
+    return [];
+  }
+
+  const highestRevenueCampaign = maxBy(
+    campaignsWithAnalytics,
+    (campaign) => campaign.analytics?.attributed_revenue ?? 0,
+  );
+  const strongestConversionCampaign = maxBy(
+    campaignsWithAnalytics,
+    (campaign) => campaign.analytics?.conversion_rate ?? 0,
+  );
+  const clickedWithoutConversionCampaign = maxBy(
+    campaignsWithAnalytics,
+    (campaign) =>
+      Math.max(
+        0,
+        (campaign.analytics?.clicked ?? 0) - (campaign.analytics?.attributed_orders ?? 0),
+      ),
+  );
+  const insights: string[] = [];
+
+  if (highestRevenueCampaign?.analytics?.attributed_revenue) {
+    insights.push(
+      `${highestRevenueCampaign.name} has generated the highest attributed revenue at ${currency.format(
+        highestRevenueCampaign.analytics.attributed_revenue,
+      )}.`,
+    );
+  }
+
+  if (strongestConversionCampaign?.analytics) {
+    insights.push(
+      `${strongestConversionCampaign.name} has the strongest conversion rate at ${strongestConversionCampaign.analytics.conversion_rate.toFixed(
+        1,
+      )}%.`,
+    );
+  }
+
+  if (clickedWithoutConversionCampaign?.analytics) {
+    const clickedWithoutConversion = Math.max(
+      0,
+      clickedWithoutConversionCampaign.analytics.clicked -
+        clickedWithoutConversionCampaign.analytics.attributed_orders,
+    );
+    if (clickedWithoutConversion > 0) {
+      insights.push(
+        `${clickedWithoutConversionCampaign.name} has ${clickedWithoutConversion.toLocaleString(
+          "en-IN",
+        )} clicked communications without attributed purchases, creating a re-engagement opportunity.`,
+      );
+    }
+  }
+
+  if (campaignsWithAnalytics.length > 1) {
+    const latest = campaignsWithAnalytics[0];
+    const previous = campaignsWithAnalytics[1];
+    const latestRevenue = latest.analytics?.attributed_revenue ?? 0;
+    const previousRevenue = previous.analytics?.attributed_revenue ?? 0;
+
+    if (latestRevenue !== previousRevenue) {
+      insights.push(
+        `Recent attributed revenue is ${
+          latestRevenue > previousRevenue ? "up" : "down"
+        } versus the prior recent campaign.`,
+      );
+    }
+  }
+
+  return insights.slice(0, 4);
+}
+
+function maxBy<T>(items: T[], getValue: (item: T) => number) {
+  return items.reduce<T | undefined>((best, item) => {
+    if (!best || getValue(item) > getValue(best)) {
+      return item;
+    }
+
+    return best;
+  }, undefined);
 }
 
 function StatusMessage({

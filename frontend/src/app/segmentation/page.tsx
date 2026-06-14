@@ -44,6 +44,8 @@ export default function SegmentationPage() {
     }
   }
 
+  const plainLanguageExplanation = buildPlainLanguageExplanation(form);
+
   return (
     <>
       <PageHeader
@@ -130,10 +132,17 @@ export default function SegmentationPage() {
         <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
           <p className="text-sm font-medium text-ink/60">Audience Count</p>
           <p className="mt-2 text-5xl font-semibold text-ink">{result?.audience_count ?? 0}</p>
+          <div className="mt-6 rounded bg-mint/60 p-3">
+            <p className="text-sm font-semibold text-ink">Plain Language Segment</p>
+            <p className="mt-2 text-sm text-ink/70">{plainLanguageExplanation}</p>
+          </div>
           <div className="mt-6">
             <p className="text-sm font-semibold text-ink">Explanations</p>
             <ul className="mt-3 grid gap-2">
-              {(result?.explanation.length ? result.explanation : ["No preview yet"]).map((item) => (
+              {(result?.explanation.length
+                ? result.explanation
+                : ["Choose filters and click Preview Segment to estimate audience size."]
+              ).map((item) => (
                 <li key={item} className="rounded bg-cloud px-3 py-2 text-sm text-ink/70">
                   {item}
                 </li>
@@ -166,3 +175,50 @@ function removeEmpty<T extends Record<string, unknown>>(value: T): T {
     Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== ""),
   ) as T;
 }
+
+function buildPlainLanguageExplanation(form: SegmentFormState) {
+  const parts: string[] = [];
+
+  if (form.lifetime_spend_greater_than) {
+    parts.push(
+      `high-value customers who have spent more than ${currency.format(
+        Number(form.lifetime_spend_greater_than),
+      )}`,
+    );
+  }
+  if (form.city.trim()) {
+    parts.push(`${form.city.trim()} customers`);
+  }
+  if (form.recent_signup_days) {
+    parts.push(`customers who signed up in the last ${form.recent_signup_days} days`);
+  }
+  if (form.dormant_days) {
+    parts.push(`customers inactive for at least ${form.dormant_days} days`);
+  }
+  if (form.minimum_order_count) {
+    parts.push(`customers with at least ${form.minimum_order_count} orders`);
+  }
+  if (form.recent_product_purchase.trim()) {
+    parts.push(`customers who recently bought ${form.recent_product_purchase.trim()}`);
+  }
+
+  if (!parts.length) {
+    return "This segment is not filtered yet. Choose filters and click Preview Segment to estimate audience size.";
+  }
+
+  return `This segment targets ${joinParts(parts)}.`;
+}
+
+function joinParts(parts: string[]) {
+  if (parts.length === 1) {
+    return parts[0];
+  }
+
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});

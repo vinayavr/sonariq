@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getLatestCommunicationEvents } from "@/services/communications";
-import type { CommunicationEvent } from "@/types/api";
+import { getRecentCampaigns } from "@/services/campaigns";
+import type { CampaignResponse, CommunicationEvent } from "@/types/api";
 
 const eventTone: Record<string, string> = {
   DELIVERED: "bg-mint text-leaf ring-1 ring-leaf/15",
@@ -14,6 +15,7 @@ const eventTone: Record<string, string> = {
 
 export function ActivityFeed() {
   const [events, setEvents] = useState<CommunicationEvent[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,7 +33,13 @@ export function ActivityFeed() {
         ),
       )
       .catch((err: Error) => setError(err.message));
+
+    getRecentCampaigns()
+      .then(setCampaigns)
+      .catch(() => setCampaigns([]));
   }, []);
+
+  const campaignById = new Map(campaigns.map((campaign) => [campaign.id, campaign]));
 
   return (
     <section className="rounded border border-ink/10 bg-white p-4 shadow-soft">
@@ -42,13 +50,15 @@ export function ActivityFeed() {
 
       {error ? <EmptyState message={error} /> : null}
       {!error && events.length === 0 ? (
-        <EmptyState message="No recent communication activity." />
+        <EmptyState message="Create and launch a campaign to view results here." />
       ) : null}
 
       {events.length ? (
         <ol className="relative grid gap-2 before:absolute before:bottom-2 before:left-[4.25rem] before:top-2 before:w-px before:bg-ink/10">
           {events.map((event) => {
             const eventType = normalizeEventType(event.event_type);
+            const campaign = campaignById.get(event.campaign_id);
+            const channel = campaign?.channel ? toTitleCase(campaign.channel) : "Channel";
 
             return (
               <li
@@ -66,11 +76,19 @@ export function ActivityFeed() {
                       Communication {shortenId(event.communication_id)}
                     </span>
                     <span className="text-xs text-ink/45">
-                      {formatTimestamp(event.timestamp)}
+                      {formatRelativeTimestamp(event.timestamp)}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs leading-4 text-ink/60">
                     Campaign {shortenId(event.campaign_id)}
+                  </p>
+                  {campaign ? (
+                    <p className="mt-0.5 text-xs leading-4 text-ink/60">
+                      {campaign.name} - {channel} communication
+                    </p>
+                  ) : null}
+                  <p className="mt-0.5 text-xs leading-4 text-ink/50">
+                    Recorded {formatAbsoluteTimestamp(event.timestamp)}
                   </p>
                 </div>
               </li>
@@ -90,7 +108,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function formatTimestamp(timestamp: string) {
+function formatRelativeTimestamp(timestamp: string) {
   const eventTime = new Date(timestamp).getTime();
   const diffSeconds = Math.max(0, Math.floor((Date.now() - eventTime) / 1000));
 
@@ -105,10 +123,12 @@ function formatTimestamp(timestamp: string) {
     const hours = Math.floor(diffSeconds / 3600);
     return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   }
+  if (diffSeconds < 172800) {
+    return "Yesterday";
+  }
 
   return new Intl.DateTimeFormat("en-IN", {
     dateStyle: "medium",
-    timeStyle: "short",
   }).format(eventTime);
 }
 
@@ -118,4 +138,18 @@ function shortenId(id: string) {
 
 function normalizeEventType(eventType: string) {
   return eventType.toUpperCase();
+}
+
+function toTitleCase(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatAbsoluteTimestamp(timestamp: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(timestamp));
 }
